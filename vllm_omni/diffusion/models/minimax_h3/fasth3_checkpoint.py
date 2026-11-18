@@ -24,6 +24,7 @@ from .fasth3 import FASTH3_BASE_MODEL
 if TYPE_CHECKING:
     from vllm_omni.diffusion.data import AttentionSpec, OmniDiffusionConfig
     from vllm_omni.inputs.data import OmniDiffusionSamplingParams
+import os # modify by sunjian
 
 FASTH3_V2_MODEL_ID = "FastVideo/FastVideo-FastH3-8-Step-V2"
 FASTH3_V2_BASE_SCHEDULE = DMD2SigmaSchedule.from_positions((0.999, 0.874, 0.749, 0.624, 0.5, 0.375, 0.25, 0.125, 0.0))
@@ -276,6 +277,27 @@ class FastH3OmniCheckpointSpec(FastH3CheckpointSpec):
         }
 
     def resolve_base_components(self, *, load_text_encoder: bool) -> Path:
+        # modify by sunjian
+        local_base = os.environ.get("MINIMAX_H3_BASE_PATH")
+        if local_base:
+            base_root = Path(local_base)
+            partition_root = base_root / "Ref2VA"
+            required_paths = [partition_root / "video_vae", partition_root / "audio_vae"]
+            if load_text_encoder:
+                required_paths.extend([
+                    partition_root / "text_encoder",
+                    partition_root / "tokenizer",
+                    partition_root / "processor",
+                ])
+            missing = [str(path) for path in required_paths if not path.exists()]
+            if missing:
+                raise FileNotFoundError(
+                    "Local MiniMax-H3 base is incomplete:\n"
+                    + "\n".join(missing)
+                )
+            return partition_root
+
+
         patterns = ["Ref2VA/video_vae/**", "Ref2VA/audio_vae/**"]
         if load_text_encoder:
             patterns += ["Ref2VA/text_encoder/**", "Ref2VA/tokenizer/**", "Ref2VA/processor/**"]

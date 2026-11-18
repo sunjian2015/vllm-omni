@@ -12,6 +12,7 @@ from vllm_omni.diffusion.utils.hf_utils import get_diffusion_model_index
 from vllm_omni.model_executor.model_loader.weight_utils import (
     download_weights_from_hf_specific,
 )
+import os # modify by sunjian
 
 _FASTH3_MODULAR_MODEL_PREFIX = "FastVideo/"
 _NATIVE_PARTITIONS = ("FL2VA", "Ref2VA")
@@ -101,6 +102,18 @@ def resolve_minimax_h3_encoder_model_root(
     if modular:
         contract = read_fasth3_contract(model, revision)
         if contract.get("model_type") == "ref2va":
+            # modify by sunjian
+            local_base = os.environ.get("MINIMAX_H3_BASE_PATH")
+            if local_base:
+                base_root = Path(local_base)
+                partition_root = base_root / "Ref2VA"
+                text_encoder = partition_root / "text_encoder"
+                if not (text_encoder / "config.json").is_file():
+                    raise FileNotFoundError(
+                        f"Local MiniMax-H3 text encoder not found: {text_encoder}"
+                    )
+                return str(text_encoder)
+
             snapshot = download_weights_from_hf_specific(
                 model_name_or_path=FASTH3_BASE_MODEL,
                 cache_dir=None,
